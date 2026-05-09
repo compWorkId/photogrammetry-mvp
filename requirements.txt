@@ -1,0 +1,9 @@
+# Core scientific / vision stack
+numpy>=1.24
+opencv-python>=4.8
+
+# 3-D visualization
+open3d>=0.17
+
+# Optional: pycolmap python bindings (not required — we use the CLI directly)
+# pycolmap>=0.6.0

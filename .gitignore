@@ -1,0 +1,37 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+bin/
+lib/
+share/
+Include/
+
+# Data and Outputs (Large binary files)
+data/images/*
+!data/images/.gitkeep
+data/output/*
+!data/output/.gitkeep
+
+# Ignore specific COLMAP / Open3D temporary files
+*.db
+*.db-journal
+*.log
+crash_log.txt
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Scratch scripts
+scratch/
