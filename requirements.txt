@@ -3,7 +3,11 @@ numpy>=1.24
 opencv-python>=4.8
 
 # 3-D visualization
-open3d>=0.17
+open3d>=0.19.0
+
+# BIM / IFC export
+ifcopenshell>=0.8.0
+Pillow>=10.0   # reads GPS altitude from drone photo EXIF, for gravity-accurate up-axis estimation
 
 # Optional: pycolmap python bindings (not required — we use the CLI directly)
 # pycolmap>=0.6.0

@@ -1,16 +1,17 @@
 # Photogrammetry Pipeline
 
-A Structure-from-Motion (SfM) pipeline that converts overlapping photos into an interactive 3D point cloud. Built with COLMAP for reconstruction and Open3D for visualization.
+A Structure-from-Motion (SfM) pipeline that converts overlapping photos into an interactive 3D point cloud, with an optional export to a typed BIM/IFC model. Built with COLMAP for reconstruction, Open3D for visualization, and ifcopenshell for BIM export.
 
 ---
 
 ## What It Does
 
-1. Reads overlapping photos from `data/images/`
+1. Reads overlapping photos from `data/<dataset-name>/images/`
 2. Runs **COLMAP** (feature extraction → matching → sparse mapping)
-3. Exports a colored 3D point cloud as `data/output/sparse.ply`
+3. Exports a colored 3D point cloud as `data/<dataset-name>/output/sparse.ply`
 4. Opens an interactive **Studio Viewer** built with Open3D
-5. Optionally runs **Poisson Surface Reconstruction** to generate a triangle mesh
+5. *(Optional, `--generate-bim`)* Exports a typed **IFC/BIM model** (`model.ifc`) — walls, slabs, and roof as real IFC elements — plus an HTML summary report
+
 
 ---
 
@@ -19,17 +20,19 @@ A Structure-from-Motion (SfM) pipeline that converts overlapping photos into an 
 ```
 photogrammetry/
 ├── data/
-│   ├── images/             ← input photos go here
-│   └── output/             ← COLMAP workspace + outputs land here
+│   ├── README.md            ← dataset folder conventions (tracked; datasets themselves are not)
+│   └── <dataset-name>/
+│       ├── images/          ← input photos go here
+│       └── output/          ← COLMAP workspace + outputs land here
 ├── src/
 │   ├── __init__.py
-│   ├── reconstruction.py   # COLMAP pipeline orchestration
-│   ├── visualization.py    # Open3D Studio Viewer (GUI)
-│   ├── mesh.py             # Poisson Surface Reconstruction
-│   ├── pipeline.py         # wires everything together
-│   └── utils.py            # logger, image discovery, COLMAP path check
+│   ├── reconstruction.py    # COLMAP pipeline orchestration
+│   ├── visualization.py     # Open3D Studio Viewer (GUI)
+│   ├── bim_export.py        # point cloud -> typed IFC model (optional, --generate-bim)
+│   ├── pipeline.py          # wires everything together
+│   └── utils.py             # logger, image discovery, COLMAP path check
 ├── requirements.txt
-├── main.py                 # CLI entry point
+├── main.py                  # CLI entry point
 └── README.md
 ```
 
@@ -98,9 +101,10 @@ pip install -r requirements.txt
 
 ## 3 — Add Your Images
 
-Drop **overlapping JPG or PNG photos** into:
+Create a folder per dataset under `data/`, with images inside an `images/`
+subfolder (see `data/README.md`):
 ```
-data/images/
+data/<dataset-name>/images/
 ```
 
 **Shooting guidelines for good reconstruction:**
@@ -110,6 +114,9 @@ data/images/
 - Shoot in diffuse natural light (overcast is ideal)
 - Avoid reflective, transparent, or textureless surfaces (glass, mirrors, plain walls)
 - Minimum ~10 images; 30–150 is typical
+- **For BIM export** (`--generate-bim`), drone photos with GPS EXIF and a
+  few different altitudes work far better than a single ground-level
+  walkaround — see `data/README.md` for why
 
 **Sample datasets if you don't have your own:**
 
@@ -125,23 +132,26 @@ data/images/
 
 ### Full run (reconstruction + viewer)
 ```bash
-python main.py
+python main.py --image-dir data/<dataset-name>/images --output-dir data/<dataset-name>/output
 ```
 
 ### Re-open the viewer without re-running COLMAP
 ```bash
-python main.py --skip-reconstruction
+python main.py --output-dir data/<dataset-name>/output --skip-reconstruction
 ```
 
 ### Run COLMAP only, no viewer (useful for servers / headless)
 ```bash
-python main.py --skip-visualization
+python main.py --image-dir data/<dataset-name>/images --output-dir data/<dataset-name>/output --skip-visualization
 ```
 
-### Generate a Poisson mesh from the existing point cloud
+### Also export a typed BIM/IFC model
 ```bash
-python main.py --skip-reconstruction --generate-mesh
+python main.py --image-dir data/<dataset-name>/images --output-dir data/<dataset-name>/output --generate-bim
 ```
+Writes `model.ifc` (open in Blender with the free **Bonsai** add-on) and
+`report.html` (a plain summary of the run) into `--output-dir`. See
+`data/README.md` for what makes a good BIM dataset.
 
 ### Custom paths
 ```bash
@@ -170,22 +180,22 @@ The viewer opens automatically after reconstruction. It runs inside a native win
 
 | Panel | What it does |
 |-------|--------------|
-| **MESH VIEW** | Toggle between point cloud and Poisson mesh (only shown when `--generate-mesh` was used) |
 | **APPEARANCE** — Point Size | Increase to make the cloud look denser |
 | **APPEARANCE** — Voxel Density | Reduce point count for performance (0 = off) |
 | **NOISE FILTERING** — Filter Strength | Remove floating artifact points. Lower value = more aggressive removal |
 | **NOISE FILTERING** — Enable Filtering | Toggle between cleaned and raw cloud |
-| **ACTIONS** — Save Screenshot | Saves current view to `data/output/view_HHMMSS.png` |
+| **ACTIONS** — Save Screenshot | Saves current view to `<output-dir>/view_HHMMSS.png` |
 | **ACTIONS** — Reset Camera | Re-centers the camera on the model |
+
 
 ---
 
 ## 6 — Output Files
 
-After a successful run, `data/output/` contains:
+After a successful run, `--output-dir` (e.g. `data/<dataset-name>/output/`) contains:
 
 ```
-data/output/
+data/<dataset-name>/output/
 ├── colmap_workspace/
 │   ├── database.db               # COLMAP feature database
 │   └── sparse/
@@ -194,10 +204,11 @@ data/output/
 │           ├── images.bin  / images.txt
 │           └── points3D.bin / points3D.txt
 ├── sparse.ply                    # colored point cloud
-└── mesh.ply                      # Poisson mesh (if --generate-mesh was used)
+├── model.ifc                     # typed BIM model (only with --generate-bim)
+└── report.html                   # plain-English summary of the export (only with --generate-bim)
 ```
 
-The `.ply` files can be opened in **Blender**, **MeshLab**, **CloudCompare**, or any other 3D software.
+The `.ply` file can be opened in **Blender**, **MeshLab**, **CloudCompare**, or any other 3D software. The `.ifc` file needs an IFC-aware viewer — Blender with the free **Bonsai** add-on is the one this project is built and tested against.
 
 ---
 
@@ -260,7 +271,7 @@ LIBGL_ALWAYS_SOFTWARE=1 python main.py --skip-reconstruction
 | 50–100 images | 2–5 min | 5–20 min | 5–10 min | 30–90 min |
 | 100–200 images | 5–15 min | 20–60 min | 10–20 min | 2–6 hours |
 
-Matching is the bottleneck — it scales as O(n²) in exhaustive mode. For datasets larger than ~150 images, switch to sequential or vocabulary-tree matching.
+Matching is the bottleneck — it scales as O(n²) in exhaustive mode. The pipeline switches from exhaustive to sequential matching automatically above 150 images (see `EXHAUSTIVE_MATCH_LIMIT` in `src/reconstruction.py`); no flag needed.
 
 **Hardware:**
 - 8 GB RAM minimum; 16 GB+ recommended for large datasets
@@ -274,5 +285,16 @@ Matching is the bottleneck — it scales as O(n²) in exhaustive mode. For datas
 
 - **Reflective / transparent surfaces** — SIFT struggles with glass, metal, and mirrors
 - **Textureless surfaces** — plain walls and smooth objects have no keypoints to match
-- **Dense reconstruction not included** — the mesh output is Poisson from a sparse cloud, not a true MVS dense result. It shows the approximate shape but lacks fine surface detail
 - **Single-camera assumption** — if your dataset mixes multiple cameras, remove `--ImageReader.single_camera 1` from `reconstruction.py`
+
+**BIM export (`--generate-bim`) specifically:**
+- Needs GPS EXIF on the source photos for real-world scale and an accurate
+  up-axis (typical of drone shoots); without it, coordinates stay in
+  COLMAP's arbitrary nominal units and up-axis falls back to a less
+  reliable plane-geometry estimate
+- This is a single-sided exterior scan — real wall/slab thickness is
+  assumed, not measured, and windows/doors/trim aren't resolved as
+  separate elements (the sparse SfM cloud is too sparse for that)
+- Georeferencing anchors the model's local origin to the mean GPS position
+  of the cameras — it is not a survey-grade projected-CRS transform
+- See the module docstring in `src/bim_export.py` for the full approach

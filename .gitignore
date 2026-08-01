@@ -12,11 +12,10 @@ lib/
 share/
 Include/
 
-# Data and Outputs (Large binary files)
-data/images/*
-!data/images/.gitkeep
-data/output/*
-!data/output/.gitkeep
+# Data and Outputs (Large binary files) — ignore any dataset folder users
+# add under data/ (images, COLMAP workspace, sparse.ply, model.ifc, etc.)
+data/*
+!data/README.md
 
 # Ignore specific COLMAP / Open3D temporary files
 *.db
@@ -35,3 +34,6 @@ crash_log.txt
 
 # Scratch scripts
 scratch/
+
+# Personal setup guide (not for the repo)
+SETUP_GUIDE.md

@@ -4,7 +4,8 @@ reconstruction.py — Orchestrates COLMAP for Structure-from-Motion.
 Pipeline steps
 --------------
 1. Feature extraction   (colmap feature_extractor)
-2. Feature matching     (colmap exhaustive_matcher)
+2. Feature matching     (colmap exhaustive_matcher, or sequential_matcher
+                          above EXHAUSTIVE_MATCH_LIMIT images)
 3. Sparse mapping       (colmap mapper)
 4. PLY export           (colmap model_converter)
 
@@ -16,9 +17,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-from src.utils import check_colmap, get_logger
+from src.utils import check_colmap, discover_images, get_logger
 
 logger = get_logger(__name__)
+
+# Exhaustive matching is O(n^2) in image count. Past this many images it
+# stops being worth it — switch to sequential matching, which only compares
+# each image against its nearby neighbors in capture order. This assumes
+# filenames sort in roughly the order the images were captured (true for
+# camera-numbered sequences like a walkaround or drone orbit).
+EXHAUSTIVE_MATCH_LIMIT = 150
 
 
 # ---------------------------------------------------------------------------
@@ -148,14 +156,26 @@ def run_reconstruction(image_dir: Path, output_dir: Path) -> Path:
         "feature_extractor",
     )
 
-    logger.info("=== Step 2/4 — Exhaustive feature matching ===")
-    _run(
-        [
-            colmap, "exhaustive_matcher",
-            "--database_path", str(database),
-        ],
-        "exhaustive_matcher",
-    )
+    image_count = len(discover_images(image_dir))
+    if image_count > EXHAUSTIVE_MATCH_LIMIT:
+        logger.info("=== Step 2/4 — Sequential feature matching (%d images > %d, exhaustive is O(n^2)) ===",
+                    image_count, EXHAUSTIVE_MATCH_LIMIT)
+        _run(
+            [
+                colmap, "sequential_matcher",
+                "--database_path", str(database),
+            ],
+            "sequential_matcher",
+        )
+    else:
+        logger.info("=== Step 2/4 — Exhaustive feature matching ===")
+        _run(
+            [
+                colmap, "exhaustive_matcher",
+                "--database_path", str(database),
+            ],
+            "exhaustive_matcher",
+        )
 
     logger.info("=== Step 3/4 — Sparse mapping (mapper) ===")
     _run(

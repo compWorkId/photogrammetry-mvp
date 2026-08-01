@@ -25,10 +25,9 @@ PANEL_WIDTH = 420
 def visualize_point_cloud(
     ply_path: Path,
     model_dir: Path = None,
-    mesh_path: Path = None,
 ) -> None:
     """
-    Open the Studio Viewer. Optionally displays a Poisson mesh if mesh_path is provided.
+    Open the Studio Viewer. Focuses on high-quality point cloud visualization.
     """
     if o3d is None:
         logger.error("open3d is not installed. Run: pip install open3d")
@@ -50,27 +49,11 @@ def visualize_point_cloud(
     center = pcd_raw.get_center()
     pcd_raw.translate(-center)
 
-    # --- Load Mesh if available ---
-    mesh = None
-    if mesh_path and mesh_path.exists():
-        mesh = o3d.io.read_triangle_mesh(str(mesh_path))
-        if not mesh.has_vertex_normals():
-            mesh.compute_vertex_normals()
-        # Apply same orientation fix so mesh aligns with point cloud
-        mesh.rotate(R_flip, center=(0, 0, 0))
-        mesh.translate(-center)
-        logger.info(
-            "Mesh loaded: %d vertices, %d triangles.",
-            len(mesh.vertices),
-            len(mesh.triangles),
-        )
-
     state = {
         "type": "clean",
         "vox": 0.0,
         "noise_std": 1.5,
         "pcd_clean": None,
-        "show_mesh": False,
     }
 
     # --- App Initialization ---
@@ -90,24 +73,14 @@ def visualize_point_cloud(
     mat_pcd.shader = "defaultUnlit"
     mat_pcd.point_size = 3.0 * win.scaling
 
-    # Mesh material — defaultLit requires vertex normals (we always compute them above)
-    mat_mesh = rendering.MaterialRecord()
-    mat_mesh.shader = "defaultLit"
-    mat_mesh.base_color = [0.8, 0.7, 0.6, 1.0]
-
     def _refresh_display():
         scene_widget.scene.clear_geometry()
-
-        if state["show_mesh"] and mesh:
-            # Show mesh instead of point cloud
-            scene_widget.scene.add_geometry("mesh", mesh, mat_mesh)
-        else:
-            # Show point cloud
-            cloud = state["pcd_clean"] if state["type"] == "clean" else pcd_raw
-            if state["vox"] > 0.001:
-                cloud = cloud.voxel_down_sample(state["vox"])
-            scene_widget.scene.add_geometry("main_cloud", cloud, mat_pcd)
-
+        
+        cloud = state["pcd_clean"] if state["type"] == "clean" else pcd_raw
+        if state["vox"] > 0.001:
+            cloud = cloud.voxel_down_sample(state["vox"])
+        
+        scene_widget.scene.add_geometry("main_cloud", cloud, mat_pcd)
         win.post_redraw()
 
     def _apply_filters():
@@ -135,23 +108,6 @@ def visualize_point_cloud(
     panel.add_child(gui.Label("Pan: Right Click + Drag"))
     panel.add_child(gui.Label("Zoom: Scroll Wheel / Pinch"))
     panel.add_child(_make_sep())
-
-    # Mesh toggle — only shown if a mesh was loaded
-    if mesh:
-        l_mesh = gui.Label("MESH VIEW")
-        l_mesh.text_color = gui.Color(0.0, 0.6, 1.0)
-        panel.add_child(l_mesh)
-
-        mesh_toggle = gui.Checkbox("Show Poisson Mesh")
-        mesh_toggle.checked = False
-
-        def _on_mesh(checked):
-            state["show_mesh"] = checked
-            _refresh_display()
-
-        mesh_toggle.set_on_checked(_on_mesh)
-        panel.add_child(mesh_toggle)
-        panel.add_child(_make_sep())
 
     l_app = gui.Label("APPEARANCE")
     l_app.text_color = gui.Color(0.0, 0.6, 1.0)
@@ -218,7 +174,7 @@ def visualize_point_cloud(
 
     def _on_screenshot():
         now = datetime.datetime.now().strftime("%H%M%S")
-        path = f"data/output/view_{now}.png"
+        path = str(ply_path.parent / f"view_{now}.png")
         scene_widget.scene.scene.render_to_image(
             lambda img: o3d.io.write_image(path, img)
         )

@@ -54,9 +54,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Stop after generating sparse.ply without opening Open3D.",
     )
     parser.add_argument(
-        "--generate-mesh",
+        "--generate-bim",
         action="store_true",
-        help="Run Poisson Surface Reconstruction on the sparse point cloud.",
+        help="Export a typed IFC model (model.ifc) from the sparse point cloud.",
     )
     parser.add_argument(
         "--verbose",
@@ -89,7 +89,7 @@ def main() -> None:
         output_dir=args.output_dir,
         skip_reconstruction=args.skip_reconstruction,
         skip_visualization=args.skip_visualization,
-        generate_mesh=args.generate_mesh,
+        generate_bim=args.generate_bim,
     )
 
 
